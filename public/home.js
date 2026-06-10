@@ -1,29 +1,35 @@
 async function init() {
-  const statusRes = await fetch('/api/status');
-  const status    = await statusRes.json();
+  try {
+    const statusRes = await fetch('/api/status');
+    const status    = await statusRes.json();
 
-  if (!status.connected) {
-    window.location.href = '/setup.html';
-    return;
-  }
+    if (!status.connected) {
+      window.location.href = '/setup.html';
+      return;
+    }
 
-  if (!status.hasCachedCards) {
-    document.getElementById('totalCount').textContent = '0 cards';
-    document.getElementById('randomBtn').style.display = 'none';
+    if (!status.hasCachedCards) {
+      document.getElementById('totalCount').textContent = '0 cards';
+      document.getElementById('randomBtn').style.display = 'none';
+      document.getElementById('content').innerHTML =
+        '<p class="subtitle" style="margin-top:24px;">No cards yet — click Sync to import from Notion.</p>';
+      return;
+    }
+
+    const res  = await fetch('/api/cards');
+    if (!res.ok) {
+      document.getElementById('totalCount').textContent = 'Error loading cards';
+      document.getElementById('content').innerHTML =
+        '<p class="subtitle" style="margin-top:24px;">Failed to load cards. Try syncing again.</p>';
+      return;
+    }
+    const data = await res.json();
+    render(data);
+  } catch {
+    document.getElementById('totalCount').textContent = 'Cannot connect to server';
     document.getElementById('content').innerHTML =
-      '<p class="subtitle" style="margin-top:24px;">No cards yet — click Sync to import from Notion.</p>';
-    return;
+      '<p class="subtitle" style="margin-top:24px;">Make sure the server is running: npm start</p>';
   }
-
-  const res  = await fetch('/api/cards');
-  if (!res.ok) {
-    document.getElementById('totalCount').textContent = 'Error loading cards';
-    document.getElementById('content').innerHTML =
-      '<p class="subtitle" style="margin-top:24px;">Failed to load cards. Try syncing again.</p>';
-    return;
-  }
-  const data = await res.json();
-  render(data);
 }
 
 function render(data) {
@@ -58,10 +64,18 @@ function render(data) {
     for (const page of pages) {
       const tile = document.createElement('div');
       tile.className = 'date-tile';
-      tile.innerHTML = `
-        <div class="date-name">${page.title}</div>
-        <div class="card-count">${page.cards.length} cards</div>
-      `;
+
+      const nameEl = document.createElement('div');
+      nameEl.className = 'date-name';
+      nameEl.textContent = page.title;
+
+      const countEl = document.createElement('div');
+      countEl.className = 'card-count';
+      countEl.textContent = `${page.cards.length} cards`;
+
+      tile.appendChild(nameEl);
+      tile.appendChild(countEl);
+
       tile.onclick = () => {
         sessionStorage.setItem('studyMode', 'page');
         sessionStorage.setItem('studyPageId', page.id);
