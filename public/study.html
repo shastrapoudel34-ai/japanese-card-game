@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Study — サスとらの日本語</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <div style="margin-top: 24px;">
+      <div class="progress-bar"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+      <div class="progress-text" id="progressText"></div>
+    </div>
+
+    <div class="card-scene" id="cardScene">
+      <div class="card-inner">
+        <div class="card-face card-front">
+          <div class="card-word" id="cardFront"></div>
+          <div class="card-hint">tap to flip</div>
+        </div>
+        <div class="card-face card-back">
+          <div class="card-word" id="cardBack"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="action-row" id="actionRow" style="display:none;">
+      <button class="btn btn-hard" id="hardBtn">Hard 😓</button>
+      <button class="btn btn-easy" id="easyBtn">Easy 😊</button>
+    </div>
+
+    <div id="endScreen" class="end-screen" style="display:none;">
+      <h2>Session complete!</h2>
+      <div class="stat-row">
+        <div class="stat">
+          <div class="stat-value" id="easyCount" style="color:var(--easy-text)">0</div>
+          <div class="stat-label">Easy</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="hardCount" style="color:var(--hard-text)">0</div>
+          <div class="stat-label">Hard</div>
+        </div>
+      </div>
+      <button class="btn btn-primary" onclick="window.location.href='/'">Back to home</button>
+    </div>
+  </div>
+  <script src="study.js"></script>
+</body>
+</html>
