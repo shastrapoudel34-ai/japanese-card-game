@@ -20,20 +20,19 @@ let notion = process.env.NOTION_API_KEY
 
 app.get('/api/status', (_req, res) => {
   res.json({
-    connected: !!(process.env.NOTION_API_KEY && process.env.NOTION_DATABASE_ID),
+    connected: !!process.env.NOTION_API_KEY,
     hasCachedCards: fs.existsSync(CARDS_PATH),
   });
 });
 
 app.post('/api/setup', (req, res) => {
-  const { notionApiKey, notionDatabaseId } = req.body;
-  if (!notionApiKey || !notionDatabaseId) {
-    return res.status(400).json({ error: 'Both fields are required' });
+  const { notionApiKey } = req.body;
+  if (!notionApiKey) {
+    return res.status(400).json({ error: 'Notion API key is required' });
   }
-  const envContent = `NOTION_API_KEY=${notionApiKey}\nNOTION_DATABASE_ID=${notionDatabaseId}\n`;
+  const envContent = `NOTION_API_KEY=${notionApiKey}\n`;
   fs.writeFileSync(path.join(__dirname, '.env'), envContent);
   process.env.NOTION_API_KEY = notionApiKey;
-  process.env.NOTION_DATABASE_ID = notionDatabaseId;
   notion = new Client({ auth: notionApiKey });
   res.json({ ok: true });
 });
@@ -54,19 +53,20 @@ app.get('/api/sync', async (_req, res) => {
     return res.status(400).json({ error: 'Notion not configured. Run setup first.' });
   }
   try {
-    let allPages = [];
+    let allPageResults = [];
     let cursor = undefined;
     do {
-      const dbResponse = await notion.databases.query({
-        database_id: process.env.NOTION_DATABASE_ID,
+      const response = await notion.search({
+        filter: { property: 'object', value: 'page' },
+        sort: { direction: 'descending', timestamp: 'last_edited_time' },
         start_cursor: cursor,
       });
-      allPages = allPages.concat(dbResponse.results);
-      cursor = dbResponse.has_more ? dbResponse.next_cursor : undefined;
+      allPageResults = allPageResults.concat(response.results);
+      cursor = response.has_more ? response.next_cursor : undefined;
     } while (cursor);
 
     const pages = [];
-    for (const page of allPages) {
+    for (const page of allPageResults) {
       const titleProp = Object.values(page.properties).find(p => p.type === 'title');
       const title = titleProp?.title?.[0]?.plain_text?.trim() || 'Unknown';
       const lastEdited = page.last_edited_time;

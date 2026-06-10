@@ -1,13 +1,12 @@
 document.getElementById('connectBtn').addEventListener('click', async () => {
-  const apiKey = document.getElementById('apiKey').value.trim();
-  const dbId   = document.getElementById('dbId').value.trim();
+  const apiKey  = document.getElementById('apiKey').value.trim();
   const errorEl = document.getElementById('error');
   const btn     = document.getElementById('connectBtn');
 
   errorEl.style.display = 'none';
 
-  if (!apiKey || !dbId) {
-    errorEl.textContent = 'Both fields are required.';
+  if (!apiKey) {
+    errorEl.textContent = 'API key is required.';
     errorEl.style.display = 'block';
     return;
   }
@@ -19,7 +18,7 @@ document.getElementById('connectBtn').addEventListener('click', async () => {
     const setupRes = await fetch('/api/setup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notionApiKey: apiKey, notionDatabaseId: dbId }),
+      body: JSON.stringify({ notionApiKey: apiKey }),
     });
     const setupData = await setupRes.json();
     if (!setupRes.ok) throw new Error(setupData.error);
