@@ -42,7 +42,11 @@ app.get('/api/cards', (_req, res) => {
   if (!fs.existsSync(CARDS_PATH)) {
     return res.status(404).json({ error: 'No cards cached. Use Sync first.' });
   }
-  res.json(JSON.parse(fs.readFileSync(CARDS_PATH, 'utf8')));
+  try {
+    res.json(JSON.parse(fs.readFileSync(CARDS_PATH, 'utf8')));
+  } catch {
+    res.status(500).json({ error: 'Cards cache is corrupted. Run Sync to rebuild.' });
+  }
 });
 
 app.get('/api/sync', async (_req, res) => {
@@ -50,18 +54,34 @@ app.get('/api/sync', async (_req, res) => {
     return res.status(400).json({ error: 'Notion not configured. Run setup first.' });
   }
   try {
-    const dbResponse = await notion.databases.query({
-      database_id: process.env.NOTION_DATABASE_ID,
-    });
+    let allPages = [];
+    let cursor = undefined;
+    do {
+      const dbResponse = await notion.databases.query({
+        database_id: process.env.NOTION_DATABASE_ID,
+        start_cursor: cursor,
+      });
+      allPages = allPages.concat(dbResponse.results);
+      cursor = dbResponse.has_more ? dbResponse.next_cursor : undefined;
+    } while (cursor);
 
     const pages = [];
-    for (const page of dbResponse.results) {
+    for (const page of allPages) {
       const titleProp = Object.values(page.properties).find(p => p.type === 'title');
       const title = titleProp?.title?.[0]?.plain_text?.trim() || 'Unknown';
       const lastEdited = page.last_edited_time;
 
-      const blocksResponse = await notion.blocks.children.list({ block_id: page.id });
-      const lines = blocksResponse.results
+      let allBlocks = [];
+      let blockCursor = undefined;
+      do {
+        const blocksResponse = await notion.blocks.children.list({
+          block_id: page.id,
+          start_cursor: blockCursor,
+        });
+        allBlocks = allBlocks.concat(blocksResponse.results);
+        blockCursor = blocksResponse.has_more ? blocksResponse.next_cursor : undefined;
+      } while (blockCursor);
+      const lines = allBlocks
         .filter(b => b.type === 'paragraph')
         .map(b => b.paragraph.rich_text.map(r => r.plain_text).join(''))
         .filter(text => text.trim());
