@@ -9,12 +9,19 @@ async function init() {
 
   if (!status.hasCachedCards) {
     document.getElementById('totalCount').textContent = '0 cards';
+    document.getElementById('randomBtn').style.display = 'none';
     document.getElementById('content').innerHTML =
       '<p class="subtitle" style="margin-top:24px;">No cards yet — click Sync to import from Notion.</p>';
     return;
   }
 
   const res  = await fetch('/api/cards');
+  if (!res.ok) {
+    document.getElementById('totalCount').textContent = 'Error loading cards';
+    document.getElementById('content').innerHTML =
+      '<p class="subtitle" style="margin-top:24px;">Failed to load cards. Try syncing again.</p>';
+    return;
+  }
   const data = await res.json();
   render(data);
 }
@@ -72,7 +79,8 @@ function getMonth(title, lastEdited) {
   const lower  = title.toLowerCase();
   const match  = months.find(m => lower.startsWith(m));
   if (match) {
-    const d = new Date(2025, months.indexOf(match), 1);
+    const year = new Date(lastEdited).getFullYear();
+    const d = new Date(year, months.indexOf(match), 1);
     return d.toLocaleString('en', { month: 'long', year: 'numeric' });
   }
   const d = new Date(lastEdited);

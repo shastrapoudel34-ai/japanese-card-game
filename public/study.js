@@ -5,7 +5,11 @@ let totalCards = 0;
 let flipped    = false;
 
 async function init() {
-  const res  = await fetch('/api/cards');
+  const res = await fetch('/api/cards');
+  if (!res.ok) {
+    window.location.href = '/';
+    return;
+  }
   const data = await res.json();
 
   const mode   = sessionStorage.getItem('studyMode');
