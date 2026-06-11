@@ -9,19 +9,33 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const CARDS_PATH = path.join(__dirname, 'cards.json');
 
-app.use(express.static('public'));
+app.use(express.static('public', { etag: false, maxAge: 0 }));
 app.use(express.json());
 
 let notion = process.env.NOTION_API_KEY
   ? new Client({ auth: process.env.NOTION_API_KEY })
   : null;
 
-// Endpoints added in Task 3
+// In-memory cache for Vercel (serverless has no persistent filesystem)
+let memCache = null;
+
+function readCache() {
+  if (memCache) return memCache;
+  try {
+    if (fs.existsSync(CARDS_PATH)) return JSON.parse(fs.readFileSync(CARDS_PATH, 'utf8'));
+  } catch {}
+  return null;
+}
+
+function writeCache(data) {
+  memCache = data;
+  try { fs.writeFileSync(CARDS_PATH, JSON.stringify(data, null, 2)); } catch {}
+}
 
 app.get('/api/status', (_req, res) => {
   res.json({
     connected: !!process.env.NOTION_API_KEY,
-    hasCachedCards: fs.existsSync(CARDS_PATH),
+    hasCachedCards: !!(memCache || fs.existsSync(CARDS_PATH)),
   });
 });
 
@@ -30,22 +44,16 @@ app.post('/api/setup', (req, res) => {
   if (!notionApiKey) {
     return res.status(400).json({ error: 'Notion API key is required' });
   }
-  const envContent = `NOTION_API_KEY=${notionApiKey}\n`;
-  fs.writeFileSync(path.join(__dirname, '.env'), envContent);
+  try { fs.writeFileSync(path.join(__dirname, '.env'), `NOTION_API_KEY=${notionApiKey}\n`); } catch {}
   process.env.NOTION_API_KEY = notionApiKey;
   notion = new Client({ auth: notionApiKey });
   res.json({ ok: true });
 });
 
 app.get('/api/cards', (_req, res) => {
-  if (!fs.existsSync(CARDS_PATH)) {
-    return res.status(404).json({ error: 'No cards cached. Use Sync first.' });
-  }
-  try {
-    res.json(JSON.parse(fs.readFileSync(CARDS_PATH, 'utf8')));
-  } catch {
-    res.status(500).json({ error: 'Cards cache is corrupted. Run Sync to rebuild.' });
-  }
+  const data = readCache();
+  if (!data) return res.status(404).json({ error: 'No cards cached. Use Sync first.' });
+  res.json(data);
 });
 
 app.get('/api/sync', async (_req, res) => {
@@ -81,6 +89,7 @@ app.get('/api/sync', async (_req, res) => {
         allBlocks = allBlocks.concat(blocksResponse.results);
         blockCursor = blocksResponse.has_more ? blocksResponse.next_cursor : undefined;
       } while (blockCursor);
+
       const lines = allBlocks
         .filter(b => b.type === 'paragraph')
         .map(b => b.paragraph.rich_text.map(r => r.plain_text).join(''))
@@ -93,9 +102,8 @@ app.get('/api/sync', async (_req, res) => {
     }
 
     pages.sort((a, b) => new Date(b.lastEdited) - new Date(a.lastEdited));
-
     const data = { pages, syncedAt: new Date().toISOString() };
-    fs.writeFileSync(CARDS_PATH, JSON.stringify(data, null, 2));
+    writeCache(data);
 
     res.json({
       ok: true,
@@ -110,3 +118,5 @@ app.get('/api/sync', async (_req, res) => {
 app.listen(PORT, () => {
   console.log(`Running at http://localhost:${PORT}`);
 });
+
+module.exports = app;
